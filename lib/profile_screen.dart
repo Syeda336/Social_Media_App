@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'authentication.dart';
+import 'user_model.dart';
 
+// --- 2. Profile Screen ---
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+  final UserModel user; // Receives the user data
+
+  const ProfileScreen({super.key, required this.user});
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -10,8 +14,6 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   final Color primaryTeal = const Color(0xFF009688);
-  
-  // 1. Track the active tab (0 = Posts, 1 = Videos, 2 = Liked)
   int activeTab = 0;
 
   @override
@@ -22,86 +24,82 @@ class _ProfileScreenState extends State<ProfileScreen> {
         child: Column(
           children: [
             // --- Header Section ---
-            // --- Updated Header Section (Arrow & ID Row -> Circle & Bio Row) ---
-Padding(
-  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 20.0),
-  child: Row(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      // Left side: Vertical stack of content
-      Expanded(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ROW 1: Back Arrow and User ID
-            Row(
-              children: [
-                IconButton(
-                  constraints: const BoxConstraints(),
-                  padding: EdgeInsets.zero,
-                  icon: const Icon(Icons.arrow_back, color: Color(0xFF263238), size: 20),
-                  onPressed: () => Navigator.pop(context),
-                ),
-                const SizedBox(width: 12),
-                const Text(
-                  "@johndoe",
-                  style: TextStyle(
-                    fontSize: 20, 
-                    fontWeight: FontWeight.bold, 
-                    color: Color(0xFF263238)
-                  ),
-                ),
-              ],
-            ),
-            
-            const SizedBox(height: 20),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 20.0),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // ROW 1: Back Arrow and Dynamic Username
+                        Row(
+                          children: [
+                            IconButton(
+                              constraints: const BoxConstraints(),
+                              padding: EdgeInsets.zero,
+                              icon: const Icon(Icons.arrow_back, color: Color(0xFF263238), size: 20),
+                              onPressed: () => Navigator.pop(context),
+                            ),
+                            const SizedBox(width: 12),
+                            Text(
+                              "@${widget.user.username}", // DYNAMIC USERNAME
+                              style: const TextStyle(
+                                fontSize: 20, 
+                                fontWeight: FontWeight.bold, 
+                                color: Color(0xFF263238)
+                              ),
+                            ),
+                          ],
+                        ),
+                        
+                        const SizedBox(height: 20),
 
-            // ROW 2: JD Circle and Details
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                CircleAvatar(
-                  radius: 35,
-                  backgroundColor: primaryTeal,
-                  child: const Text(
-                    "JD", 
-                    style: TextStyle(fontSize: 24, color: Colors.white, fontWeight: FontWeight.bold)
+                        // ROW 2: Dynamic Avatar and Details
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            CircleAvatar(
+                              radius: 35,
+                              backgroundColor: primaryTeal,
+                              child: Text(
+                                widget.user.initials, // DYNAMIC INITIALS
+                                style: const TextStyle(fontSize: 24, color: Colors.white, fontWeight: FontWeight.bold)
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    widget.user.fullName, // DYNAMIC NAME
+                                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87)
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    widget.user.bio, // DYNAMIC BIO
+                                    style: const TextStyle(fontSize: 13, color: Color(0xFF546E7A)),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(width: 16),
-                const Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "John Doe", 
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87)
-                      ),
-                      SizedBox(height: 4),
-                      Text(
-                        "Creative soul | Photography enthusiast | Travel lover",
-                        style: TextStyle(fontSize: 13, color: Color(0xFF546E7A)),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
 
-      // Right side: Settings Icon (remains at the top right)
-      IconButton(
-        icon: const Icon(Icons.settings, color: Colors.grey, size: 26),
-        onPressed: () {
-          // Navigator.push to SettingsScreen
-          Navigator.push(context, MaterialPageRoute(builder: (context) => const SettingsScreen()));
-        },
-      ),
-    ],
-  ),
-),
+                  IconButton(
+                    icon: const Icon(Icons.settings, color: Colors.grey, size: 26),
+                    onPressed: () {
+                      Navigator.push(context, MaterialPageRoute(builder: (context) => const SettingsScreen()));
+                    },
+                  ),
+                ],
+              ),
+            ),
 
             // --- Tab Buttons ---
             Padding(
@@ -129,12 +127,11 @@ Padding(
     );
   }
 
-  // 2. Helper to build the Tab Buttons
   Widget _buildTabButton(String text, int index) {
     bool isActive = activeTab == index;
     return Expanded(
       child: GestureDetector(
-        onTap: () => setState(() => activeTab = index), // Change state on click
+        onTap: () => setState(() => activeTab = index),
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
@@ -155,25 +152,10 @@ Padding(
     );
   }
 
-  // 3. Helper to switch the Grid based on activeTab
   Widget _buildGridContent() {
-    String label = "";
-    IconData icon = Icons.image;
-    int count = 6;
-
-    if (activeTab == 0) {
-      label = "Post";
-      icon = Icons.image_outlined;
-      count = 6;
-    } else if (activeTab == 1) {
-      label = "Video";
-      icon = Icons.play_circle_outline;
-      count = 4; // Different count to see the change
-    } else {
-      label = "Liked";
-      icon = Icons.favorite_border;
-      count = 9; // Different count to see the change
-    }
+    String label = activeTab == 0 ? "Post" : (activeTab == 1 ? "Video" : "Liked");
+    IconData icon = activeTab == 0 ? Icons.image_outlined : (activeTab == 1 ? Icons.play_circle_outline : Icons.favorite_border);
+    int count = activeTab == 0 ? 6 : (activeTab == 1 ? 4 : 9);
 
     return GridView.builder(
       padding: const EdgeInsets.all(16),
@@ -204,9 +186,9 @@ Padding(
   }
 }
 
+// --- 3. Settings Screen ---
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
-
   final Color primaryTeal = const Color(0xFF009688);
 
   @override
@@ -241,7 +223,6 @@ class SettingsScreen extends StatelessWidget {
                   const Divider(),
                   _buildTextSizeSelector(),
                   const Divider(),
-                  // --- Added Name Change Option ---
                   _buildSimpleOption(Icons.person_outline, "Name Change", "Update your display name"),
                   const Divider(),
                   _buildSimpleOption(Icons.vpn_key_outlined, "Change Password", "Update your password"),
@@ -249,7 +230,6 @@ class SettingsScreen extends StatelessWidget {
               ),
             ),
             const Spacer(),
-            // --- Logout Button ---
             SizedBox(
               width: double.infinity,
               height: 55,
@@ -259,7 +239,6 @@ class SettingsScreen extends StatelessWidget {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
                 onPressed: () {
-                  // Navigate to Login and remove all previous screens from stack
                   Navigator.pushAndRemoveUntil(
                     context, 
                     MaterialPageRoute(builder: (context) => const LoginScreen()),

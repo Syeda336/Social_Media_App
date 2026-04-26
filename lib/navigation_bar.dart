@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
-import 'profile_screen.dart';
+import 'profile_screen.dart'; 
+import 'user_model.dart';
+// 1. Ensure you have supabase_flutter in your pubspec.yaml
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 // --- MAIN NAVIGATION SHELL ---
 class Navigation extends StatefulWidget {
-  const Navigation({super.key});
+  final UserModel user;
+  const Navigation({super.key, required this.user});
 
   @override
   State<Navigation> createState() => _NavigationState();
@@ -11,21 +15,19 @@ class Navigation extends StatefulWidget {
 
 class _NavigationState extends State<Navigation> {
   int _selectedIndex = 0;
-
   final Color primaryTeal = const Color(0xFF009688);
   final Color inactiveGrey = Colors.grey.shade600;
 
-  // This list holds the different screens for each tab
   late final List<Widget> _pages;
 
   @override
   void initState() {
     super.initState();
     _pages = [
-      const HomeScreen(), // Index 0: Your Home Screen code
-      const Center(child: Text("Documents", style: TextStyle(fontSize: 24))), // Index 1
-      const Center(child: Text("Chat", style: TextStyle(fontSize: 24))),      // Index 2
-      const Center(child: Text("Search", style: TextStyle(fontSize: 24))),    // Index 3
+      HomeScreen(user: widget.user), 
+      const Center(child: Text("Documents", style: TextStyle(fontSize: 24))),
+      const Center(child: Text("Chat", style: TextStyle(fontSize: 24))),
+      const Center(child: Text("Search", style: TextStyle(fontSize: 24))),
     ];
   }
 
@@ -33,13 +35,10 @@ class _NavigationState extends State<Navigation> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
-      
-      // IndexedStack keeps the state of screens alive when switching tabs
       body: IndexedStack(
         index: _selectedIndex,
         children: _pages,
       ),
-
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       floatingActionButton: FloatingActionButton(
         onPressed: () {},
@@ -48,7 +47,6 @@ class _NavigationState extends State<Navigation> {
         shape: const CircleBorder(),
         child: Icon(Icons.add, color: primaryTeal, size: 32),
       ),
-
       bottomNavigationBar: BottomAppBar(
         padding: const EdgeInsets.symmetric(horizontal: 10),
         height: 65,
@@ -59,7 +57,7 @@ class _NavigationState extends State<Navigation> {
           children: [
             _buildNavItem(Icons.home_outlined, Icons.home, 0),
             _buildNavItem(Icons.description_outlined, Icons.description, 1),
-            const SizedBox(width: 40), // Gap for FAB
+            const SizedBox(width: 40),
             _buildNavItem(Icons.chat_bubble_outline, Icons.chat_bubble, 2),
             _buildNavItem(Icons.search, Icons.search, 3),
           ],
@@ -82,30 +80,53 @@ class _NavigationState extends State<Navigation> {
 }
 
 // --- HOME SCREEN CONTENT ---
-// Note: Removed the Scaffold and BottomBar from here as they are now in 'Navigation'
-// --- FIXED HOME SCREEN CONTENT ---
 class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key});
+  final UserModel user;
+  const HomeScreen({super.key, required this.user});
 
   final Color primaryTeal = const Color(0xFF009688);
 
+  // 2. SUPABASE FETCH LOGIC
+  Future<String> _fetchUserNameFromSupabase() async {
+    try {
+      // Queries the 'users' table where the 'id' matches the current user
+      final data = await Supabase.instance.client
+          .from('users')
+          .select('full_name') // or 'fullName' depending on your column name
+          .eq('id', user.id)
+          .single();
+
+      if (data != null && data['full_name'] != null) {
+        return data['full_name'] as String;
+      }
+    } catch (e) {
+      debugPrint("Supabase Error: $e");
+    }
+    return user.fullName; // Fallback to current local data
+  }
+
   @override
   Widget build(BuildContext context) {
-    // We use a Scaffold here but WITHOUT a bottomNavigationBar 
-    // This provides the correct constraints for the AppBar and Body
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
         automaticallyImplyLeading: false,
-        title: const Text(
-          "John Doe",
-          style: TextStyle(
-            color: Color(0xFF263238),
-            fontWeight: FontWeight.bold,
-            fontSize: 22,
-          ),
+        title: FutureBuilder<String>(
+          future: _fetchUserNameFromSupabase(),
+          builder: (context, snapshot) {
+            // Displays Supabase name, or initial name while loading
+            String displayName = snapshot.data ?? user.fullName;
+            return Text(
+              displayName,
+              style: const TextStyle(
+                color: Color(0xFF263238),
+                fontWeight: FontWeight.bold,
+                fontSize: 22,
+              ),
+            );
+          },
         ),
         actions: [
           Padding(
@@ -113,18 +134,21 @@ class HomeScreen extends StatelessWidget {
             child: GestureDetector(
               onTap: () {
                 Navigator.push(
-                context,
-                MaterialPageRoute(
-                builder: (context) => const ProfileScreen(),
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => ProfileScreen(user: user),
+                  ),
+                );
+              },
+              child: CircleAvatar(
+                radius: 20,
+                backgroundColor: primaryTeal,
+                child: Text(
+                  user.initials, 
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                 ),
-              );
-            },
-            child: CircleAvatar(
-              radius: 20,
-              backgroundColor: primaryTeal,
-              child: const Text("JD", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              ),
             ),
-          ),
           )
         ],
         bottom: PreferredSize(
@@ -132,8 +156,6 @@ class HomeScreen extends StatelessWidget {
           child: Divider(color: Colors.grey.shade200, height: 1),
         ),
       ),
-      // By using ListView directly as the body of this inner Scaffold, 
-      // we avoid the Column/Expanded height conflict entirely.
       body: ListView.builder(
         padding: const EdgeInsets.all(16),
         itemCount: 3,
@@ -142,6 +164,7 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
+  // --- UI Helpers (Remaining code exactly as original) ---
   Widget _buildBlankFeedCard() {
     return Card(
       elevation: 3,
@@ -173,15 +196,15 @@ class HomeScreen extends StatelessWidget {
                 _buildGreyBar(height: 16, width: 150),
                 const SizedBox(height: 16),
                 const Divider(),
-                Row( 
+                const Row( 
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const BlankIconButton(icon: Icons.thumb_up_alt_outlined),
-                    const BlankIconButton(icon: Icons.thumb_down_alt_outlined),
-                    const Spacer(),
-                    const BlankIconButton(icon: Icons.chat_bubble_outline),
-                    const SizedBox(width: 20),
-                    const BlankIconButton(icon: Icons.share_outlined),
+                    BlankIconButton(icon: Icons.thumb_up_alt_outlined),
+                    BlankIconButton(icon: Icons.thumb_down_alt_outlined),
+                    Spacer(),
+                    BlankIconButton(icon: Icons.chat_bubble_outline),
+                    SizedBox(width: 20),
+                    BlankIconButton(icon: Icons.share_outlined),
                   ],
                 )
               ],
@@ -203,9 +226,9 @@ class HomeScreen extends StatelessWidget {
     );
   }
 }
+
 class BlankIconButton extends StatelessWidget {
   final IconData icon;
-  // This 'const' here is what allows you to use it in constant lists!
   const BlankIconButton({super.key, required this.icon}); 
 
   @override
