@@ -18,10 +18,6 @@ Future<void> main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // 🔥 OPTIONAL (FOR TESTING ONLY)
-  // Force logout so onboarding screen shows
-  await FirebaseAuth.instance.signOut();
-
   // 🔥 Initialize Supabase
   await Supabase.initialize(
     url: 'https://cwiojzbucfmwfltvzugj.supabase.co',
@@ -59,6 +55,7 @@ class AuthWrapper extends StatelessWidget {
     String name = firebaseUser.displayName ?? "New User";
 
     return UserModel(
+      id: firebaseUser.uid, // ✅ FIXED
       fullName: name,
       username: firebaseUser.email?.split('@').first ?? "user",
       bio: "Digital Creator | Content Enthusiast",
@@ -71,7 +68,6 @@ class AuthWrapper extends StatelessWidget {
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
 
-        // 🔄 Loading state
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
             body: Center(
@@ -82,12 +78,10 @@ class AuthWrapper extends StatelessWidget {
           );
         }
 
-        // ❌ User NOT logged in → Show onboarding
         if (snapshot.data == null) {
           return const OnboardingScreen();
         }
 
-        // ✅ User logged in → Go to Navigation
         final userModel = _generateUserModel(snapshot.data!);
         return Navigation(user: userModel);
       },
