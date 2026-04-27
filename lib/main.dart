@@ -3,29 +3,32 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:social_media_app/firebase_options.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide User;
+import 'package:provider/provider.dart';
 
 // Internal files
 import 'authentication.dart';
 import 'navigation_bar.dart';
 import 'user_model.dart';
-import 'splash_screen.dart';
+import 'theme_provider.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 🔥 Initialize Firebase
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // 🔥 Initialize Supabase
   await Supabase.initialize(
     url: 'https://cwiojzbucfmwfltvzugj.supabase.co',
-    anonKey:
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN3aW9qemJ1Y2Ztd2ZsdHZ6dWdqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcxMjU1NTMsImV4cCI6MjA5MjcwMTU1M30.5YY6jHqaZ9fkEGN6iR_bYkEmfrmOIMPogv8enZY0EIQ',
+    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN3aW9qemJ1Y2Ztd2ZsdHZ6dWdqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcxMjU1NTMsImV4cCI6MjA5MjcwMTU1M30.5YY6jHqaZ9fkEGN6iR_bYkEmfrmOIMPogv8enZY0EIQ',
   );
 
-  runApp(const SocialApp());
+  runApp(
+    ChangeNotifierProvider(
+      create: (_) => ThemeProvider(),
+      child: const SocialApp(),
+    ),
+  );
 }
 
 class SocialApp extends StatelessWidget {
@@ -33,32 +36,74 @@ class SocialApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Social App',
+
+      themeMode: themeProvider.themeMode,
+
       theme: ThemeData(
+        useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFF009688),
+          brightness: Brightness.light,
         ),
-        useMaterial3: true,
       ),
+
+      darkTheme: ThemeData(
+        useMaterial3: true,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF009688),
+          brightness: Brightness.dark,
+        ),
+      ),
+
       home: const AuthWrapper(),
     );
   }
 }
 
-class AuthWrapper extends StatelessWidget {
+// ---------------- AUTH WRAPPER ----------------
+class AuthWrapper extends StatefulWidget {
   const AuthWrapper({super.key});
 
-  // 🔹 Convert Firebase User → UserModel
-  UserModel _generateUserModel(User firebaseUser) {
-    String name = firebaseUser.displayName ?? "New User";
+  @override
+  State<AuthWrapper> createState() => _AuthWrapperState();
+}
+
+class _AuthWrapperState extends State<AuthWrapper> {
+  Key _refreshKey = UniqueKey();
+
+  Future<UserModel> _getProfileData(User firebaseUser) async {
+    final supabase = Supabase.instance.client;
+
+    try {
+      final data = await supabase
+          .from('users')
+          .select()
+          .eq('id', firebaseUser.uid)
+          .maybeSingle();
+
+      if (data != null) {
+        return UserModel(
+          id: firebaseUser.uid,
+          fullName: data['full_name'] ?? "User",
+          username: data['username'] ?? "user",
+          bio: data['bio'] ?? "",
+          avatarUrl: data['avatar_url'],
+        );
+      }
+    } catch (e) {
+      debugPrint("Profile error: $e");
+    }
 
     return UserModel(
-      id: firebaseUser.uid, // ✅ FIXED
-      fullName: name,
+      id: firebaseUser.uid,
+      fullName: firebaseUser.displayName ?? "User",
       username: firebaseUser.email?.split('@').first ?? "user",
-      bio: "Digital Creator | Content Enthusiast",
+      bio: "",
     );
   }
 
@@ -67,23 +112,32 @@ class AuthWrapper extends StatelessWidget {
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
-
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
-            body: Center(
-              child: CircularProgressIndicator(
-                color: Color(0xFF009688),
-              ),
-            ),
+            body: Center(child: CircularProgressIndicator()),
           );
         }
 
-        if (snapshot.data == null) {
-          return const OnboardingScreen();
+        final firebaseUser = snapshot.data;
+
+        if (firebaseUser == null) {
+          return const LoginScreen();
         }
 
-        final userModel = _generateUserModel(snapshot.data!);
-        return Navigation(user: userModel);
+        return FutureBuilder<UserModel>(
+          key: _refreshKey,
+          future: _getProfileData(firebaseUser),
+          builder: (context, userSnapshot) {
+            if (userSnapshot.connectionState == ConnectionState.waiting) {
+              return const Scaffold(
+                body: Center(child: CircularProgressIndicator()),
+              );
+            }
+
+            return Navigation(
+            );
+          },
+        );
       },
     );
   }

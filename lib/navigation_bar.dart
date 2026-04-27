@@ -1,13 +1,10 @@
 import 'package:flutter/material.dart';
-import 'profile_screen.dart'; 
-import 'user_model.dart';
-// 1. Ensure you have supabase_flutter in your pubspec.yaml
+import 'profile_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 // --- MAIN NAVIGATION SHELL ---
 class Navigation extends StatefulWidget {
-  final UserModel user;
-  const Navigation({super.key, required this.user});
+  const Navigation({super.key});
 
   @override
   State<Navigation> createState() => _NavigationState();
@@ -15,6 +12,7 @@ class Navigation extends StatefulWidget {
 
 class _NavigationState extends State<Navigation> {
   int _selectedIndex = 0;
+
   final Color primaryTeal = const Color(0xFF009688);
   final Color inactiveGrey = Colors.grey.shade600;
 
@@ -24,7 +22,7 @@ class _NavigationState extends State<Navigation> {
   void initState() {
     super.initState();
     _pages = [
-      HomeScreen(user: widget.user), 
+      const HomeScreen(),
       const Center(child: Text("Documents", style: TextStyle(fontSize: 24))),
       const Center(child: Text("Chat", style: TextStyle(fontSize: 24))),
       const Center(child: Text("Search", style: TextStyle(fontSize: 24))),
@@ -81,52 +79,45 @@ class _NavigationState extends State<Navigation> {
 
 // --- HOME SCREEN CONTENT ---
 class HomeScreen extends StatelessWidget {
-  final UserModel user;
-  const HomeScreen({super.key, required this.user});
+  const HomeScreen({super.key});
 
   final Color primaryTeal = const Color(0xFF009688);
 
-  // 2. SUPABASE FETCH LOGIC
-  Future<String> _fetchUserNameFromSupabase() async {
-    try {
-      // Queries the 'users' table where the 'id' matches the current user
-      final data = await Supabase.instance.client
-          .from('users')
-          .select('full_name') // or 'fullName' depending on your column name
-          .eq('id', user.id)
-          .single();
-
-      if (data != null && data['full_name'] != null) {
-        return data['full_name'] as String;
-      }
-    } catch (e) {
-      debugPrint("Supabase Error: $e");
+  String _getInitials(String name) {
+    if (name.isEmpty) return "?";
+    List<String> parts = name.trim().split(' ');
+    if (parts.length > 1) {
+      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
     }
-    return user.fullName; // Fallback to current local data
+    return parts[0][0].toUpperCase();
   }
 
   @override
   Widget build(BuildContext context) {
+    // ✅ ONLY SUPABASE AUTH
+    final authUser = Supabase.instance.client.auth.currentUser;
+
+    final String displayName =
+        authUser?.userMetadata?['display_name'] ??
+        authUser?.userMetadata?['full_name'] ??
+        authUser?.email ??
+        'User';
+
+    final String displayInitials = _getInitials(displayName);
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
         automaticallyImplyLeading: false,
-        title: FutureBuilder<String>(
-          future: _fetchUserNameFromSupabase(),
-          builder: (context, snapshot) {
-            // Displays Supabase name, or initial name while loading
-            String displayName = snapshot.data ?? user.fullName;
-            return Text(
-              displayName,
-              style: const TextStyle(
-                color: Color(0xFF263238),
-                fontWeight: FontWeight.bold,
-                fontSize: 22,
-              ),
-            );
-          },
+        title: Text(
+          displayName,
+          style: const TextStyle(
+            color: Color(0xFF263238),
+            fontWeight: FontWeight.bold,
+            fontSize: 22,
+          ),
         ),
         actions: [
           Padding(
@@ -136,7 +127,7 @@ class HomeScreen extends StatelessWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => ProfileScreen(user: user),
+                    builder: (context) => const ProfileScreen(),
                   ),
                 );
               },
@@ -144,8 +135,11 @@ class HomeScreen extends StatelessWidget {
                 radius: 20,
                 backgroundColor: primaryTeal,
                 child: Text(
-                  user.initials, 
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  displayInitials,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ),
@@ -164,7 +158,6 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  // --- UI Helpers (Remaining code exactly as original) ---
   Widget _buildBlankFeedCard() {
     return Card(
       elevation: 3,
@@ -179,7 +172,9 @@ class HomeScreen extends StatelessWidget {
             aspectRatio: 16 / 9,
             child: Container(
               color: Colors.grey.shade200,
-              child: const Center(child: Icon(Icons.image, color: Colors.grey, size: 48)),
+              child: const Center(
+                child: Icon(Icons.image, color: Colors.grey, size: 48),
+              ),
             ),
           ),
           Padding(
@@ -196,15 +191,15 @@ class HomeScreen extends StatelessWidget {
                 _buildGreyBar(height: 16, width: 150),
                 const SizedBox(height: 16),
                 const Divider(),
-                const Row( 
+                const Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    BlankIconButton(icon: Icons.thumb_up_alt_outlined),
-                    BlankIconButton(icon: Icons.thumb_down_alt_outlined),
+                    Icon(Icons.thumb_up_alt_outlined, color: Colors.grey),
+                    Icon(Icons.thumb_down_alt_outlined, color: Colors.grey),
                     Spacer(),
-                    BlankIconButton(icon: Icons.chat_bubble_outline),
+                    Icon(Icons.chat_bubble_outline, color: Colors.grey),
                     SizedBox(width: 20),
-                    BlankIconButton(icon: Icons.share_outlined),
+                    Icon(Icons.share_outlined, color: Colors.grey),
                   ],
                 )
               ],
@@ -224,15 +219,5 @@ class HomeScreen extends StatelessWidget {
         borderRadius: BorderRadius.circular(4),
       ),
     );
-  }
-}
-
-class BlankIconButton extends StatelessWidget {
-  final IconData icon;
-  const BlankIconButton({super.key, required this.icon}); 
-
-  @override
-  Widget build(BuildContext context) {
-    return Icon(icon, color: Colors.grey.shade400, size: 22);
   }
 }
